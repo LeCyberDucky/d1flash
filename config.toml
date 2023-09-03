@@ -1,0 +1,19 @@
+default_recipe = "flash"
+
+[boot]
+pin = 5
+state = {pull = "High"}
+
+[reset]
+pin = 6
+state = {pull = "High"}
+
+[recipes]
+
+[recipes.flash]
+command = 'espflash'
+arguments = ['write-bin', '0x0', 'firmware.bin']
+
+[recipes.monitor]
+command = 'espflash'
+arguments = ['monitor']

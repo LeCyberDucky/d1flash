@@ -29,45 +29,60 @@ fn main() -> Result<()> {
         config.reset.state,
     );
 
-    // Reboot ESP into flash mode, if specified
-    if cli.flash {
-        println!("Triggering boot mode pin (state: Low).");
-        boot.set_low();
-        std::thread::sleep(std::time::Duration::from_millis(20));
-    }
+    // Reboot ESP into flash mode. This is necessary for both flashing and monitoring
+    println!("Triggering boot mode pin (state: Low).");
+    boot.set_low();
+    std::thread::sleep(std::time::Duration::from_millis(20));
 
-    if cli.reset || cli.flash { // Flashing implies resetting
-        println!("Triggering reset pin (state: Low).");
-        reset.set_low();
-        std::thread::sleep(std::time::Duration::from_millis(100));
+    println!("Triggering reset pin (state: Low).");
+    reset.set_low();
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
-        println!("Releasing reset pin (state: Open).");
-        reset.set_open();
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
+    println!("Releasing reset pin (state: Open).");
+    reset.set_open();
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
-    // Execute recipe
-    let recipe = match cli.recipe.len() {
-        0 => config.recipes[&config.default_recipe].clone(),
-        1 if config.recipes.contains_key(&cli.recipe[0]) => config.recipes[&cli.recipe[0]].clone(),
-        _ => Recipe::from(cli.recipe).clone(),
-    };
-    println!("Executing {:?}", recipe);
-    recipe.execute()?;
+    std::thread::scope(|scope| {
+        let reset_task = scope.spawn(|| {
+            if let Some(reset_flag) = cli.reset {
+                std::thread::sleep(std::time::Duration::from_millis(reset_flag.or(2000)));
+                boot.set_open();
+                println!("Triggering reset pin (state: Low).");
+                reset.set_low();
+                std::thread::sleep(std::time::Duration::from_millis(100));
+    
+                println!("Releasing reset pin (state: Open).");
+                reset.set_open();
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        });
+
+        // Execute recipe
+        let recipe = match cli.recipe.len() {
+            0 => config.recipes[&config.default_recipe].clone(),
+            1 if config.recipes.contains_key(&cli.recipe[0]) => {
+                config.recipes[&cli.recipe[0]].clone()
+            }
+            _ => Recipe::from(cli.recipe).clone(),
+        };
+        println!("Executing {:?}", recipe);
+        recipe.execute().expect("Meh");
+
+        reset_task.join().expect("Meh");
+    });
 
     // Reboot ESP into normal mode, if flash mode was entered previously
-    if cli.flash {
-        println!("Releasing boot mode pin (state: Open).");
-        boot.set_open();
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        
-        println!("Triggering reset pin (state: Low).");
-        reset.set_low();
-    
-        println!("Releasing reset pin (state: Open).");
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        reset.set_open();
-    }
+    println!("Releasing boot mode pin (state: Open).");
+    boot.set_open();
+    std::thread::sleep(std::time::Duration::from_millis(20));
+
+    println!("Triggering reset pin (state: Low).");
+    reset.set_low();
+
+    println!("Releasing reset pin (state: Open).");
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    reset.set_open();
+
 
     println!("Done!");
     Ok(())

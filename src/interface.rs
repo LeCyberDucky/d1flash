@@ -220,7 +220,7 @@ impl Recipe {
     }
 
     pub fn execute(&self) -> std::io::Result<std::process::ExitStatus> {
-    // pub fn execute(&self) -> std::io::Result<std::process::Child> {
+        // pub fn execute(&self) -> std::io::Result<std::process::Child> {
         // std::process::Command::new(&self.command)
         //     .args(&self.arguments)
         //     .stdout(std::process::Stdio::piped())
@@ -272,15 +272,13 @@ pub struct Cli {
     /// followed by a set of arguments. Existing recipies are not considered.
     #[clap(verbatim_doc_comment)]
     pub recipe: Vec<String>,
-    
-    /// Whether or not the ESP should be rebooted.
-    #[arg(short, long)]
-    pub reset: bool,
 
-    /// Whether or not the ESP should be rebooted into flash mode.
-    /// flash implies reset.
+    /// Whether or not the ESP should be rebooted during execution of the recipe.
+    /// This is useful for monitoring. The chip must be booted to flashing mode in order to set up monitoring. After establishing monitoring, the chip should be reset to normal mode.
+    /// During flashing, on the other hand, the chip should not be reset.
+    /// Resetting is optional, and an optional delay between execution of the recipe and the resetting can be specified. The dfault is 2000ms
     #[arg(short, long)]
-    pub flash: bool
+    pub reset: Option<Option<u64>>,
 }
 
 fn valid_path(path: &str) -> Result<PathBuf, color_eyre::Report> {
